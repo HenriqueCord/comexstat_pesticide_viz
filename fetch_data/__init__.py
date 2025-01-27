@@ -205,7 +205,6 @@ def create_denfensivos_agricolas_df() -> pd.DataFrame:
     )
 
     df_response = pd.DataFrame.from_dict(response['data']['list']).rename(columns=COLUMN_RENAME_MAP)
-    df_response.loc[:, "class"] = df_response[PRODUCT_IDENTIFIER_COLUMN_NAME].map(id_to_classification_map)  # THIS IS ENRICHING DATA
 
     return df_response
 
