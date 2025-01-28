@@ -1,10 +1,16 @@
 import requests
 import json
 import pandas as pd
+import warnings
+
+from datetime import datetime
+
+DATA_QUALITY_CHECK_CONSEQUENCE = "warning"
 
 PRODUCT_IDENTIFIER_COLUMN_NAME = "id_ncm"
 
-POSSIBLE_METRICS = ["FOB", "KG", "Statistic", "Freight", "Insurance", "CIF"]
+# POSSIBLE_METRICS = ["FOB", "KG", "Statistic", "Freight", "Insurance", "CIF"]
+POSSIBLE_METRICS = ["KG"]  # TODO allow every metric
 
 # NCM stands for "Nomenclatura Comum Mercosul"
 # https://portalunico.siscomex.gov.br/classif/#/nesh/consulta?id=114967&dataPesquisa=2025-01-10T19:55:04.000Z&tipoNota=3&tab=11736538995258
@@ -21,21 +27,21 @@ NCM_IDS_PREFIX_DICT = {
 }
 
 COLUMN_RENAME_MAP = {
-    "coAno": 'ano',
-    "coMes": 'mes',
-    "noPaispt": "pais",
-    "noUf": "estado",
-    "noVia": "via_de_transporte",
-    "noUrf": "unidade_receita_federal",
+    "coAno": 'year',
+    "coMes": 'month',
+    "noPaispt": "export_country",
+    "noUf": "import_brazillian_state",
+    "noVia": "transport_method",
+    "noUrf": "federal_agency",
     "coNcm": PRODUCT_IDENTIFIER_COLUMN_NAME,
-    "noNcmpt": "descritor_ncm",
-    "noUnid": "unidade_medida",
-    "vlFob": "valor_fob_usd",
-    "vlFrete": "valor_frete_usd",
-    "vlSeguro": "valor_seguro_usd",
-    "vlCif": "valor_cif_usd",
-    "kgLiquido": "peso_liq_kg",
-    "qtEstat": "qtd_estatistica",
+    "noNcmpt": "description_ncm",
+    "noUnid": "unit",
+    "vlFob": "value_fob_usd",
+    "vlFrete": "value_frete_usd",
+    "vlSeguro": "value_insurance_usd",
+    "vlCif": "value_cif_usd",
+    "kgLiquido": "net_weight_kg",
+    "qtEstat": "statistical_quantity",
 }
 
 BASE_URL = 'https://api-comexstat.mdic.gov.br/general'
@@ -187,6 +193,35 @@ def query_defensivos_agricolas_from_comexstat(
             return None
      
 
+def check_data_quality(df, consequence_level="warning"):
+    """
+    Check for NaN values and duplicates in a DataFrame.
+    """
+    valid_levels = {"warning", "error"}
+    if consequence_level not in valid_levels:
+        raise ValueError(f"Invalid consequence_level: '{consequence_level}'. "
+                         f"Must be one of {valid_levels}")
+
+    issues = []
+
+    if df.isna().any().any():
+        issues.append("NaN values detected in the DataFrame.")
+
+    if df.duplicated().any():
+        issues.append("Duplicate rows detected in the DataFrame.")
+
+    if issues:
+        full_message = " ".join(issues)
+        
+        if consequence_level == "error":
+            raise ValueError(f"Data Quality Issues: {full_message}")
+            
+        warnings.warn(f"Data Quality Issues: {full_message}")
+    
+    else:
+        print("Data quality check passed - no NaNs or duplicates found.")
+
+
 def create_denfensivos_agricolas_df() -> pd.DataFrame:
     
     possible_ncm_ids = get_comexstat_filter_possible_values(
@@ -206,8 +241,76 @@ def create_denfensivos_agricolas_df() -> pd.DataFrame:
 
     df_response = pd.DataFrame.from_dict(response['data']['list']).rename(columns=COLUMN_RENAME_MAP)
 
+    check_data_quality(df_response, consequence_level=DATA_QUALITY_CHECK_CONSEQUENCE)
+
     return df_response
 
+
+def process_defensivos_agricolas_df(df: pd.DataFrame):
+    _df = df.copy()
+    # is this bad hardcoding?
+    _df["description_ncm"] = _df["description_ncm"].str.lower()
+    _df["net_weight_kg"] = _df["net_weight_kg"].astype(float)
+    _df["dt"] = pd.to_datetime(_df['year'] + '-' + _df['month'] + '-01')
+    _df["extracted_at"] = datetime.today()
+
+    return _df
+
+def create_one_hot_classification_column(df: pd.DataFrame):
+    _df = df.copy()
+    
+    # one hot categories
+    _df["is_domissanitario"] = False
+    _df["is_herbicide"] = False
+    _df["is_inseticide"] = False
+    _df["is_fungicide"] = False
+    _df["is_ddt"] = False  # unused. values were too low in exploratory analysis
+    
+    domissanit_cond = _df["descritor_ncm"].str.contains("domissanit")
+    _df.loc[domissanit_cond, "is_domissanitario"] = True
+    
+    herbicide_cond = _df["descritor_ncm"].str.contains("herbicida|germina")
+    _df.loc[herbicide_cond, "is_herbicide"] = True
+    
+    inseticide_cond = _df["descritor_ncm"].str.contains("inseticid")
+    _df.loc[inseticide_cond, "is_inseticide"] = True
+    
+    fungicide_cond = _df["descritor_ncm"].str.contains("fungicid")
+    _df.loc[fungicide_cond, "is_fungicide"] = True
+    
+    ddt_cond = _df["descritor_ncm"].str.contains("ddt")
+    _df.loc[ddt_cond, "is_ddt"] = True
+
+    # multiple categories
+    _df["is_multiple_categories"] = False
+    pesticide_classes_cols = ["is_herbicide", "is_inseticide", "is_fungicide"]
+    multiple_cond = _df[pesticide_classes_cols].sum(axis=1) > 1
+    _df.loc[multiple_cond, "is_multiple_categories"] = True
+    
+    return _df
+
+
+def melt_and_group_by_classes_and_dt(df: pd.DataFrame):
+    _df = df.copy()
+
+    value_keys = ["net_weight_kg"]
+    dt_keys = ["dt"]
+    one_hot_keys = ['is_domissanitario', 'is_herbicide', 'is_inseticide', 'is_fungicide']
+    _df_keys = value_keys + dt_keys + one_hot_keys
+    
+    # group
+    class_sums_df = _df[_df_keys].groupby(dt_keys + one_hot_keys).sum().reset_index()
+    # melt
+    melted_agg_df = class_sums_df.melt(id_vars=dt_keys + value_keys,
+                         value_vars=one_hot_keys, 
+                         var_name='class', 
+                         value_name='is_present')
+    
+    melted_agg_df = melted_agg_df[melted_agg_df['is_present'] == 1] # keep only values of classes that existed 
+                                                                    # in the original data.
+    melted_agg_df = melted_agg_df.drop(columns=["is_present"])
+    
+    return melted_agg_df
 
 # TODO create constant for URL, pass as parameter 
 def create_forest_coverage_data_df() -> pd.DataFrame:
