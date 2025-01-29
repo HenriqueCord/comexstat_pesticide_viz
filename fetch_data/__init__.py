@@ -109,6 +109,81 @@ DEFAULT_FILTER_PARAMS = {
     "monthEndName": "Dezembro",
 }
 
+COUNTRY_PT_TO_ISO3_CODE_MAP = { # TODO dimensions file with this kind of mapping
+    'Alemanha': 'DEU',  # Germany
+    'Antilhas Holandesas': 'ANT',  # Netherlands Antilles (Note: This entity no longer exists as a country)
+    'Argentina': 'ARG',
+    'Austrália': 'AUS',  # Australia
+    'Belarus': 'BLR',
+    'Brasil': 'BRA',  # Brazil
+    'Bulgária': 'BGR',  # Bulgaria
+    'Bélgica': 'BEL',  # Belgium
+    'Canadá': 'CAN',  # Canada
+    'Cayman, Ilhas': 'CYM',  # Cayman Islands
+    'Chile': 'CHL',
+    'China': 'CHN',
+    'Cocos (Keeling), Ilhas': 'CCK',  # Cocos (Keeling) Islands
+    'Colômbia': 'COL',  # Colombia
+    'Coreia do Norte': 'PRK',  # North Korea
+    'Coreia do Sul': 'KOR',  # South Korea
+    'Costa Rica': 'CRI',
+    'Cuba': 'CUB',
+    'Dinamarca': 'DNK',  # Denmark
+    'Emirados Árabes Unidos': 'ARE',  # United Arab Emirates
+    'Equador': 'ECU',  # Ecuador
+    'Eslovênia': 'SVN',  # Slovenia
+    'Espanha': 'ESP',  # Spain
+    'Estados Unidos': 'USA',  # United States
+    'Filipinas': 'PHL',  # Philippines
+    'Finlândia': 'FIN',  # Finland
+    'França': 'FRA',  # France
+    'Grécia': 'GRC',  # Greece
+    'Guatemala': 'GTM',
+    'Hong Kong': 'HKG',  # Hong Kong (Special Administrative Region of China)
+    'Hungria': 'HUN',  # Hungary
+    'Indonésia': 'IDN',  # Indonesia
+    'Inglaterra': 'GBR',  # England (part of the United Kingdom)
+    'Irlanda': 'IRL',  # Ireland
+    'Israel': 'ISR',
+    'Itália': 'ITA',  # Italy
+    'Iugoslávia': 'YUG',  # Yugoslavia (Note: This entity no longer exists as a country)
+    'Japão': 'JPN',  # Japan
+    'Jordânia': 'JOR',  # Jordan
+    'Lituânia': 'LTU',  # Lithuania
+    'Macau': 'MAC',  # Macau (Special Administrative Region of China)
+    'Malta': 'MLT',
+    'Malásia': 'MYS',  # Malaysia
+    'México': 'MEX',  # Mexico
+    'Nigéria': 'NGA',  # Nigeria
+    'Noruega': 'NOR',  # Norway
+    'Nova Zelândia': 'NZL',  # New Zealand
+    'Panamá': 'PAN',  # Panama
+    'Paquistão': 'PAK',  # Pakistan
+    'Paraguai': 'PRY',  # Paraguay
+    'Países Baixos (Holanda)': 'NLD',  # Netherlands
+    'Peru': 'PER',
+    'Polônia': 'POL',  # Poland
+    'Porto Rico': 'PRI',  # Puerto Rico (Territory of the United States)
+    'Portugal': 'PRT',
+    'Reino Unido': 'GBR',  # United Kingdom
+    'República Dominicana': 'DOM',  # Dominican Republic
+    'Rússia': 'RUS',  # Russia
+    'Singapura': 'SGP',  # Singapore
+    'Sudão': 'SDN',  # Sudan
+    'Suécia': 'SWE',  # Sweden
+    'Suíça': 'CHE',  # Switzerland
+    'Tailândia': 'THA',  # Thailand
+    'Taiwan (Formosa)': 'TWN',  # Taiwan (Province of China)
+    'Tcheca, República': 'CZE',  # Czech Republic
+    'Turquia': 'TUR',  # Turkey
+    'Uruguai': 'URY',  # Uruguay
+    'Venezuela': 'VEN',
+    'Vietnã': 'VNM',  # Vietnam
+    'África do Sul': 'ZAF',  # South Africa
+    'Áustria': 'AUT',  # Austria
+    'Índia': 'IND'  # India
+}
+
 def get_comexstat_filter_possible_values(
     filter_name: str,
     base_url = BASE_URL,
@@ -222,6 +297,59 @@ def check_data_quality(df, consequence_level="warning"):
         print("Data quality check passed - no NaNs or duplicates found.")
 
 
+def map_column_to_iso3_country_code(column: pd.Series):
+    return column.map(COUNTRY_PT_TO_ISO3_CODE_MAP)
+
+
+def process_defensivos_agricolas_df(df: pd.DataFrame):
+    """
+    Lower description strings, Enforce dtype and add Date columns
+    """
+    _df = df.copy()
+    # is this bad hardcoding?
+    _df["description_ncm"] = _df["description_ncm"].str.lower()
+    _df["net_weight_kg"] = _df["net_weight_kg"].astype(float)
+    _df["dt"] = pd.to_datetime(_df['year'] + '-' + _df['month'] + '-01')
+    _df["extracted_at"] = datetime.today()
+    _df["export_country_code"] = map_column_to_iso3_country_code(_df["export_country"])
+
+    return _df
+
+
+def create_one_hot_classification(df: pd.DataFrame):
+    _df = df.copy()
+    
+    # one hot categories
+    _df["is_domissanitario"] = False
+    _df["is_herbicide"] = False
+    _df["is_inseticide"] = False
+    _df["is_fungicide"] = False
+    _df["is_ddt"] = False  # unused. values were too low in exploratory analysis
+    
+    domissanit_cond = _df["description_ncm"].str.contains("domissanit")
+    _df.loc[domissanit_cond, "is_domissanitario"] = True
+    
+    herbicide_cond = _df["description_ncm"].str.contains("herbicida|germina")
+    _df.loc[herbicide_cond, "is_herbicide"] = True
+    
+    inseticide_cond = _df["description_ncm"].str.contains("inseticid")
+    _df.loc[inseticide_cond, "is_inseticide"] = True
+    
+    fungicide_cond = _df["description_ncm"].str.contains("fungicid")
+    _df.loc[fungicide_cond, "is_fungicide"] = True
+    
+    ddt_cond = _df["description_ncm"].str.contains("ddt")
+    _df.loc[ddt_cond, "is_ddt"] = True
+
+    # multiple categories
+    _df["is_multiple_categories"] = False
+    pesticide_classes_cols = ["is_herbicide", "is_inseticide", "is_fungicide"]
+    multiple_cond = _df[pesticide_classes_cols].sum(axis=1) > 1
+    _df.loc[multiple_cond, "is_multiple_categories"] = True
+    
+    return _df
+
+
 def create_denfensivos_agricolas_df() -> pd.DataFrame:
     
     possible_ncm_ids = get_comexstat_filter_possible_values(
@@ -243,51 +371,10 @@ def create_denfensivos_agricolas_df() -> pd.DataFrame:
 
     check_data_quality(df_response, consequence_level=DATA_QUALITY_CHECK_CONSEQUENCE)
 
-    return df_response
-
-
-def process_defensivos_agricolas_df(df: pd.DataFrame):
-    _df = df.copy()
-    # is this bad hardcoding?
-    _df["description_ncm"] = _df["description_ncm"].str.lower()
-    _df["net_weight_kg"] = _df["net_weight_kg"].astype(float)
-    _df["dt"] = pd.to_datetime(_df['year'] + '-' + _df['month'] + '-01')
-    _df["extracted_at"] = datetime.today()
-
-    return _df
-
-def create_one_hot_classification_column(df: pd.DataFrame):
-    _df = df.copy()
+    df_processed = process_defensivos_agricolas_df(df_response)  # process
+    df_classified = create_one_hot_classification(df_processed)  # enriches
     
-    # one hot categories
-    _df["is_domissanitario"] = False
-    _df["is_herbicide"] = False
-    _df["is_inseticide"] = False
-    _df["is_fungicide"] = False
-    _df["is_ddt"] = False  # unused. values were too low in exploratory analysis
-    
-    domissanit_cond = _df["descritor_ncm"].str.contains("domissanit")
-    _df.loc[domissanit_cond, "is_domissanitario"] = True
-    
-    herbicide_cond = _df["descritor_ncm"].str.contains("herbicida|germina")
-    _df.loc[herbicide_cond, "is_herbicide"] = True
-    
-    inseticide_cond = _df["descritor_ncm"].str.contains("inseticid")
-    _df.loc[inseticide_cond, "is_inseticide"] = True
-    
-    fungicide_cond = _df["descritor_ncm"].str.contains("fungicid")
-    _df.loc[fungicide_cond, "is_fungicide"] = True
-    
-    ddt_cond = _df["descritor_ncm"].str.contains("ddt")
-    _df.loc[ddt_cond, "is_ddt"] = True
-
-    # multiple categories
-    _df["is_multiple_categories"] = False
-    pesticide_classes_cols = ["is_herbicide", "is_inseticide", "is_fungicide"]
-    multiple_cond = _df[pesticide_classes_cols].sum(axis=1) > 1
-    _df.loc[multiple_cond, "is_multiple_categories"] = True
-    
-    return _df
+    return df_classified
 
 
 def melt_and_group_by_classes_and_dt(df: pd.DataFrame):
@@ -312,8 +399,8 @@ def melt_and_group_by_classes_and_dt(df: pd.DataFrame):
     
     return melted_agg_df
 
-# TODO create constant for URL, pass as parameter 
-def create_forest_coverage_data_df() -> pd.DataFrame:
-    forest_coverage_data_url = "https://dados.florestal.gov.br/pt_BR/api/3/action/datastore_search?resource_id=67d29e7e-0b99-41c5-9586-f0f045bc598c"
-    r = requests.get(forest_coverage_data_url)
-    return pd.DataFrame(r.json()['result']['records'])
+# # TODO create constant for URL, pass as parameter 
+# def create_forest_coverage_data_df() -> pd.DataFrame:
+#     forest_coverage_data_url = "https://dados.florestal.gov.br/pt_BR/api/3/action/datastore_search?resource_id=67d29e7e-0b99-41c5-9586-f0f045bc598c"
+#     r = requests.get(forest_coverage_data_url)
+#     return pd.DataFrame(r.json()['result']['records'])
