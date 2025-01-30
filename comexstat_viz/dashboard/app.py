@@ -70,7 +70,7 @@ if filtered_data.empty:
     st.warning("No data found for selected filters!")
     st.stop()
 
-### Main visualization
+### Main visualization  # TODO create fns to plots
 
 ## moving avg as trend
 sum_df = filtered_melted_grouped_data[[DT_KEY, VALUE_KEY]].groupby(DT_KEY).sum()
