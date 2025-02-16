@@ -1,15 +1,12 @@
-import sys
-from pathlib import Path
-
-project_path = Path().resolve().parent
-sys.path.append(str(project_path))
-
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-import fetch_data as fd
+import comexstat_viz.fetch_data as cfd
+import comexstat_viz.dashboard.plots as cvdp
+
 
 DT_KEY = "dt"
 VALUE_KEY = "net_weight_kg"
@@ -18,8 +15,15 @@ COUNTRY_CODE_KEY = "export_country_code"
 
 ROLLING_AVG_WINDOW_IN_MONTHS = 12
 
+LABEL_TO_COLOR_MAP = {
+    "is_herbicide": "lightgreen",
+    "is_fungicide": "rebeccapurple",
+    "is_inseticide": "tomato",
+    "is_domissanitario": "teal",
+}
+
 # Title and description
-st.title("Brazil Pesticide Importation Dashboard")
+st.title("Brazil's Pesticide Importation")
 st.write(
     """
     This dashboard provides an interactive view of Brazil's importation records for pesticides, 
@@ -28,28 +32,47 @@ st.write(
     """
 )
 
-# Sidebar for user inputs
-st.sidebar.header("Filters")
+#
+##
+### load data
+##
+#
 
 
-# load data
 @st.cache_data
-def load_data():
-    return fd.create_denfensivos_agricolas_df()
+def load_raw_data():
+    return cfd.create_denfensivos_agricolas_df()
 
 
-data = load_data()
+data = load_raw_data()
 
 
+@st.cache_data
 def melt_data(df: pd.DataFrame):
-    return fd.melt_and_group_by_classes_and_dt(data)
+    return cfd.melt_and_group_by_classes_and_dt(df)
 
 
 melted_grouped_data = melt_data(data)
 
-# Filter options
-min_date = data[DT_KEY].dt.to_pydatetime().min()  # to_pydatetime is deprecated
-max_date = data[DT_KEY].dt.to_pydatetime().max()
+
+@st.cache_data
+def load_seasonal_decompose_data(df: pd.DataFrame):
+    return cfd.seasonal_decompose_pesticide_import_data(df)
+
+
+seasonal_data_object = load_seasonal_decompose_data(data)
+
+
+#
+##
+### Filter options
+##
+#
+
+st.sidebar.header("Filters")
+
+min_date = np.array(data[DT_KEY].dt.to_pydatetime()).min()
+max_date = np.array(data[DT_KEY].dt.to_pydatetime()).max()
 
 selected_dates = st.sidebar.slider(
     "Select Date Range:",
@@ -58,93 +81,105 @@ selected_dates = st.sidebar.slider(
     value=(min_date, max_date),  # Default range
     format="MM/DD/YYYY",  # Customize date format if needed
 )
+start_dt, end_dt = selected_dates[0], selected_dates[1]
+
 # Apply filters
-filtered_data = data[
-    (data[DT_KEY] >= selected_dates[0]) & (data[DT_KEY] <= selected_dates[1])
-]
+filtered_data = data[(data[DT_KEY] >= start_dt) & (data[DT_KEY] <= end_dt)]
 filtered_melted_grouped_data = melted_grouped_data[
-    (melted_grouped_data[DT_KEY] >= selected_dates[0])
-    & (melted_grouped_data[DT_KEY] <= selected_dates[1])
+    (melted_grouped_data[DT_KEY] >= start_dt) & (melted_grouped_data[DT_KEY] <= end_dt)
 ]
+filtered_seasonal = seasonal_data_object.seasonal.loc[start_dt:end_dt]
+filtered_residual = seasonal_data_object.resid.loc[start_dt:end_dt]
+filtered_trend = seasonal_data_object.trend.loc[start_dt:end_dt]
+
 if filtered_data.empty:
     st.warning("No data found for selected filters!")
     st.stop()
 
+
+#
+##
 ### Main visualization  # TODO create fns to plots
+##
+#
 
-## moving avg as trend
-sum_df = filtered_melted_grouped_data[[DT_KEY, VALUE_KEY]].groupby(DT_KEY).sum()
-sum_df = sum_df.sort_index()
-moving_avg_df = sum_df.rolling(window=ROLLING_AVG_WINDOW_IN_MONTHS).mean()
-moving_avg_sr = moving_avg_df["net_weight_kg"]
+### Sidebar
+st.sidebar.header("Total Import:")
+total_weight_in_kg = filtered_melted_grouped_data[VALUE_KEY].sum()
+weight_in_units_of_blue_whales = int(total_weight_in_kg / 1e3 / 150 / 1e3) * int(1e3)  # TODO why i did this?
+weight_in_units_of_loaded_747_planes = int(total_weight_in_kg / 1e3 / 400 / 1e3) * int(1e3)
 
-## plot
+if total_weight_in_kg > 1e9:
+    display = (total_weight_in_kg / 1e9).round(1)
+    st.sidebar.metric(label="Weight", value=f"{display} Billion kg")
+else:
+    display = (total_weight_in_kg / 1e6).round(1)
+    st.sidebar.metric(label="Weight", value=f"{display} Million kg")
+st.sidebar.text(f"That's equivalent to {weight_in_units_of_blue_whales} blue whales, or {weight_in_units_of_loaded_747_planes} loaded Boeing 747s")
+
+## trend plot
 st.subheader("Import Trends by Year")
-fig_trend = px.bar(
-    filtered_melted_grouped_data, x=DT_KEY, y=VALUE_KEY, color=PRODUCT_CLASS_KEY
+fig_trend = cvdp.plot_trend_with_bar(
+    data=filtered_melted_grouped_data,
+    x_key=DT_KEY,
+    y_key=VALUE_KEY,
+    trend_arr=filtered_trend,
+    color_key=PRODUCT_CLASS_KEY,
+    color_map=LABEL_TO_COLOR_MAP,
 )
-
-# add trendline
-fig_trend.add_trace(
-    go.Scatter(
-        x=moving_avg_sr.index,  # Use the same x-axis values as the bar plot
-        y=moving_avg_sr.values,  # Use the same y-axis values or a different column for the line
-        mode="lines",  # Display as a line with markers
-        name="12m Rolling Avg.",  # Name for the legend
-        line=dict(color="saddlebrown", width=2.5),  # Customize the line color and width
-    )
-)
-
-# layout
-fig_trend.update_layout(
-    xaxis_title="Date",
-    yaxis_title="Net Weight (kg)",
-    colorway=px.colors.qualitative.Dark24
-)
-
 st.plotly_chart(fig_trend)
 
-# # Geographical plot
-sum_by_country_df = (
-    filtered_data.groupby(COUNTRY_CODE_KEY)[VALUE_KEY].sum().reset_index()
+## seasonal plot
+st.subheader("Sazonality effect on imports")
+fig_seasonal = cvdp.plot_seasonal_decompose(
+    filtered_seasonal, 
+    filtered_residual
 )
-sum_by_country_df = sum_by_country_df[sum_by_country_df[COUNTRY_CODE_KEY] != "BRA"]
+st.plotly_chart(fig_seasonal)
+
+## geographical plot
 st.subheader("Exports by Country")
-fig_geo = px.choropleth(
-    sum_by_country_df,
-    locations=COUNTRY_CODE_KEY,
-    locationmode="ISO-3",
-    color=VALUE_KEY,
-    hover_name=COUNTRY_CODE_KEY,
-    color_continuous_scale="Plasma",
-    range_color=(sum_by_country_df[VALUE_KEY].min(), sum_by_country_df[VALUE_KEY].max()),
-    title="Export Net Weight per Country",
+_filter_br_cond = filtered_data[COUNTRY_CODE_KEY] != "BRA"
+sum_by_country_df = (
+    filtered_data[_filter_br_cond]
+    .groupby(COUNTRY_CODE_KEY)[VALUE_KEY]
+    .sum()
+    .reset_index()
+)
+
+fig_geo = cvdp.plot_choropleth(
+    data=sum_by_country_df,
+    country_code_key=COUNTRY_CODE_KEY,
+    value_key=VALUE_KEY,
 )
 st.plotly_chart(fig_geo)
 
-# # Product classes
+## product classes plot
 sum_by_class_df = (
     filtered_melted_grouped_data.groupby(PRODUCT_CLASS_KEY)[VALUE_KEY]
     .sum()
     .reset_index()
 )
 st.subheader("Share of Imported Product Classes")
-fig_products = px.bar(
+fig_products = cvdp.plot_bar_by_class(
     sum_by_class_df,
-    x=PRODUCT_CLASS_KEY,
-    y=VALUE_KEY,
-    color=PRODUCT_CLASS_KEY,
-    title="Share of Imports by Product Class",
+    x_key=PRODUCT_CLASS_KEY,
+    y_key=VALUE_KEY,
+    color_key=PRODUCT_CLASS_KEY,
+    color_map=LABEL_TO_COLOR_MAP,
+    title=None,
 )
 st.plotly_chart(fig_products)
+
 
 # display raw data
 st.subheader("Raw Data")
 st.dataframe(filtered_data)
 
+
 # download raw data
-st.sidebar.download_button(
+st.download_button(
     "Download Filtered Data",
     filtered_data.to_csv(index=False),
-    file_name="filtered_data.csv"
+    file_name="filtered_data.csv",
 )
