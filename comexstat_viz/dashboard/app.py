@@ -27,7 +27,7 @@ st.title("Brazil's Pesticide Importation")
 st.write(
     """
     This dashboard provides an interactive view of Brazil's importation records for pesticides, 
-    herbicides, and other agricultural chemicals from 1997 to 2024. 
+    herbicides, and other agricultural chemicals from 1997 to 2024.
     Explore trends, geographical distribution, and insights into imported products.
     """
 )
@@ -74,13 +74,22 @@ st.sidebar.header("Filters")
 min_date = np.array(data[DT_KEY].dt.to_pydatetime()).min()
 max_date = np.array(data[DT_KEY].dt.to_pydatetime()).max()
 
-selected_dates = st.sidebar.slider(
+selected_dates = st.sidebar.date_input(
     "Select Date Range:",
+    value=(min_date, max_date),
     min_value=min_date,
     max_value=max_date,
-    value=(min_date, max_date),  # Default range
-    format="MM/DD/YYYY",  # Customize date format if needed
+    format="MM/YYYY"  # Emphasize month-year selection
 )
+
+# Handle single date vs range selection
+if len(selected_dates) == 1:
+    start_dt = end_dt = pd.to_datetime(selected_dates[0])
+elif len(selected_dates) == 2:
+    start_dt, end_dt = (pd.to_datetime(d) for d in selected_dates)
+else:
+    st.error("Please select a valid date range")
+    st.stop()
 start_dt, end_dt = selected_dates[0], selected_dates[1]
 
 # Apply filters
@@ -99,7 +108,7 @@ if filtered_data.empty:
 
 #
 ##
-### Main visualization  # TODO create fns to plots
+### Main visualization
 ##
 #
 

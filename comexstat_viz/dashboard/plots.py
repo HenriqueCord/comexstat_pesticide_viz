@@ -83,7 +83,7 @@ def plot_seasonal_decompose(seasonal_arr, residual_arr):
             y=seasonal_arr.values,
             mode="lines",
             name="Seasonal",
-            line=dict(color="lightgreen", width=1.5),
+            line=dict(color="darkgreen", width=2),
         )
     )
 
@@ -94,7 +94,7 @@ def plot_seasonal_decompose(seasonal_arr, residual_arr):
             y=residual_arr.values,
             mode="markers",
             name="Residuals",
-            marker=dict(color="tomato", size=8, symbol="circle-open-dot"),
+            marker=dict(color="tomato", size=6, symbol="circle-open-dot"),
         )
     )
 
@@ -102,6 +102,7 @@ def plot_seasonal_decompose(seasonal_arr, residual_arr):
     fig_decompose.update_layout(
         xaxis_title="Time",
         yaxis_title="Weight (kg)",
+        yaxis_range=[-2e7, 2e7],
         legend=dict(title="Components"),
         template="plotly_white",
     )
