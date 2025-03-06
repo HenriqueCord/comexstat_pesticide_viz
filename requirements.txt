@@ -1,7 +1,5 @@
-pandas
-statsmodels
-numpy
-streamlit
-plotly
-warnings
-requests
+pandas==2.2.3
+statsmodels==0.14.4
+numpy==2.2.0
+streamlit==1.43.0
+plotly==6.0.0
