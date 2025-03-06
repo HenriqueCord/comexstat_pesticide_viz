@@ -1,0 +1,7 @@
+pandas
+statsmodels
+numpy
+streamlit
+plotly
+warnings
+requests
