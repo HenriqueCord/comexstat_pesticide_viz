@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-import comexstat_viz.dashboard.fetch_data as cfd
-import comexstat_viz.dashboard.plots as cvdp
+import dashboard.fetch_data as fd
+import dashboard.plots as dp
 
 
 DT_KEY = "dt"
@@ -39,7 +39,7 @@ st.write(
 
 @st.cache_data
 def load_raw_data():
-    return cfd.create_denfensivos_agricolas_df()
+    return fd.create_denfensivos_agricolas_df()
 
 
 data = load_raw_data()
@@ -47,7 +47,7 @@ data = load_raw_data()
 
 @st.cache_data
 def melt_data(df: pd.DataFrame):
-    return cfd.melt_and_group_by_classes_and_dt(df)
+    return fd.melt_and_group_by_classes_and_dt(df)
 
 
 melted_grouped_data = melt_data(data)
@@ -55,7 +55,7 @@ melted_grouped_data = melt_data(data)
 
 @st.cache_data
 def load_seasonal_decompose_data(df: pd.DataFrame):
-    return cfd.seasonal_decompose_pesticide_import_data(df)
+    return fd.seasonal_decompose_pesticide_import_data(df)
 
 
 seasonal_data_object = load_seasonal_decompose_data(data)
@@ -135,7 +135,7 @@ st.write(
 
 ## seasonal plot
 st.subheader("Sazonality effect on imports")
-fig_seasonal = cvdp.plot_seasonal_decompose(
+fig_seasonal = dp.plot_seasonal_decompose(
     filtered_seasonal, 
     filtered_residual
 )
@@ -151,7 +151,7 @@ sum_by_country_df = (
     .reset_index()
 )
 
-fig_geo = cvdp.plot_choropleth(
+fig_geo = dp.plot_choropleth(
     data=sum_by_country_df,
     country_code_key=COUNTRY_CODE_KEY,
     value_key=VALUE_KEY,
@@ -165,7 +165,7 @@ sum_by_class_df = (
     .reset_index()
 )
 st.subheader("Share of Imported Product Classes")
-fig_products = cvdp.plot_bar_by_class(
+fig_products = dp.plot_bar_by_class(
     sum_by_class_df,
     x_key=PRODUCT_CLASS_KEY,
     y_key=VALUE_KEY,
