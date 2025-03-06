@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-import dashboard.fetch_data as fd
-import dashboard.plots as dp
+import fetch_data as fd
+import plots
 
 
 DT_KEY = "dt"
@@ -117,7 +117,7 @@ st.sidebar.text(f"That's equivalent to {weight_in_units_of_blue_whales} blue wha
 
 ## trend plot
 st.subheader("Import Trends by Year")
-fig_trend = cvdp.plot_trend_with_bar(
+fig_trend = plots.plot_trend_with_bar(
     data=filtered_melted_grouped_data,
     x_key=DT_KEY,
     y_key=VALUE_KEY,
@@ -135,7 +135,7 @@ st.write(
 
 ## seasonal plot
 st.subheader("Sazonality effect on imports")
-fig_seasonal = dp.plot_seasonal_decompose(
+fig_seasonal = plots.plot_seasonal_decompose(
     filtered_seasonal, 
     filtered_residual
 )
@@ -151,7 +151,7 @@ sum_by_country_df = (
     .reset_index()
 )
 
-fig_geo = dp.plot_choropleth(
+fig_geo = plots.plot_choropleth(
     data=sum_by_country_df,
     country_code_key=COUNTRY_CODE_KEY,
     value_key=VALUE_KEY,
@@ -165,7 +165,7 @@ sum_by_class_df = (
     .reset_index()
 )
 st.subheader("Share of Imported Product Classes")
-fig_products = dp.plot_bar_by_class(
+fig_products = plots.plot_bar_by_class(
     sum_by_class_df,
     x_key=PRODUCT_CLASS_KEY,
     y_key=VALUE_KEY,
