@@ -1,6 +1,0 @@
-README.md
-setup.py
-comexstat_viz.egg-info/PKG-INFO
-comexstat_viz.egg-info/SOURCES.txt
-comexstat_viz.egg-info/dependency_links.txt
-comexstat_viz.egg-info/top_level.txt
