@@ -127,6 +127,12 @@ fig_trend = cvdp.plot_trend_with_bar(
 )
 st.plotly_chart(fig_trend)
 
+st.write(
+    """
+    "Domissanitário" category refers to products destinated to household use
+    """
+)
+
 ## seasonal plot
 st.subheader("Sazonality effect on imports")
 fig_seasonal = cvdp.plot_seasonal_decompose(
