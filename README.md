@@ -21,7 +21,7 @@ Interactive dashboard for analyzing Brazil's pesticide import data (1997-today) 
 - **Geographical Distribution**:
   - Choropleth map showing import volumes by country.
 - **Product Class Breakdown**:
-  - Bar/pie charts showing composition of imports.
+  - Bar charts showing composition of imports.
   - Custom color mapping for product classes.
 - **Seasonal Decomposition**:
   - Visualizes seasonal and residual components of import trends.
