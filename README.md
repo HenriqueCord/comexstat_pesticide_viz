@@ -4,8 +4,6 @@
 
 Interactive dashboard for analyzing Brazil's pesticide import data (1997-2024) with trend visualization, geographical distribution, and product class breakdown.
 
-![Dashboard Preview](![newplot](https://github.com/user-attachments/assets/6999b43a-c0c9-4e5d-bd7a-91e1cfd8059c))  
-
 ---
 
 ## Features
@@ -46,3 +44,26 @@ comexstat_viz/
 ├── setup.py                # Package configuration
 ├── requirements.txt        # Python dependencies
 └── README.md
+```
+
+## Installation & Usage
+1. **Clone repo**:
+  ```bash
+git clone https://github.com/your-username/comexstat_viz.git
+cd comexstat_viz
+```
+2. **Install**:
+  ```bash
+pip install -r requirements.txt
+pip install -e .  # Install package in editable mode
+```
+
+3.**Run**: 
+  ```bash
+streamlit comexstat_viz/dashboard/app.py 
+```
+
+## Acknowledgments
+Data sourced from COMEXSTAT (Brazilian Foreign Trade Portal).
+
+Built with Streamlit, Plotly, and Pandas.
