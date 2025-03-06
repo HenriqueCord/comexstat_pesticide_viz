@@ -33,7 +33,7 @@ def plot_trend_with_bar(
             y=trend_arr.values,
             mode="lines",
             name="Trend",
-            line=dict(color="cornsilk", width=2.5),
+            line=dict(color="cornflowerblue", width=2.5),
         )
     )
 
