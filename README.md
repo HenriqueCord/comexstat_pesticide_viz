@@ -9,7 +9,7 @@ Interactive dashboard for analyzing Brazil's pesticide import data (1997-today) 
 ## Features
 
 ### **Data Fetching & Processing**
-- **API Integration**: Fetches data from the [COMEXSTAT API](https://api-comexstat.mdic.gov.br/general).
+- **API Integration**: Fetches data from the [COMEXSTAT API](https://comexstat.mdic.gov.br/pt/home).
 - **Data Quality Checks**: Ensures no NaNs or duplicates in the dataset.
 - **Data Enrichment**:
   - Adds ISO3 country codes for geographical visualization.
