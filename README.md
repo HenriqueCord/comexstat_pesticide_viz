@@ -2,7 +2,7 @@
 
 [![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://br-comexstat-pesticide-viz.streamlit.app/)  
 
-Interactive dashboard for analyzing Brazil's pesticide import data (1997-2024) with trend visualization, geographical distribution, and product class breakdown.
+Interactive dashboard for analyzing Brazil's pesticide import data (1997-today) with trend visualization, geographical distribution, and product class breakdown.
 
 ---
 
