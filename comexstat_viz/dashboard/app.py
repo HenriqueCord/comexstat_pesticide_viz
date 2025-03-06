@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-import comexstat_viz.fetch_data as cfd
+import comexstat_viz.dashboard.fetch_data as cfd
 import comexstat_viz.dashboard.plots as cvdp
 
 
