@@ -49,7 +49,7 @@ comexstat_viz/
 ## Installation & Usage
 1. **Clone repo**:
   ```bash
-git clone https://github.com/your-username/comexstat_viz.git
+git clone https://github.com/HenriqueCord/comexstat_pesticide_viz.git
 cd comexstat_viz
 ```
 2. **Install**:
